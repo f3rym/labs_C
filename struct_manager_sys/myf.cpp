@@ -24,46 +24,41 @@ int enterEl()
     return el;
 }
 
-table *mem(char *tableName, char *columns)
+void saveDbInFile(database *db)
 {
-    char *token, **columnsName;
-    table *def;
-    def = (table *)malloc(sizeof(table));
-    def->nameTb = (char *)malloc(strlen(tableName) + 1);
-    strcpy(def->nameTb, tableName);
-    def->columnsCount = 0;
-    def->maxRow = DefMaxRow;
-    def->rowCount = 0;
-    // Разделение названий колонн из команды
-    columnsName = (char **)malloc(DefMaxColumns * sizeof(char *));
-    for (int i = 0; i < DefMaxColumns; i++)
-        *(columnsName + i) = (char *)malloc(MaxStringSize * sizeof(char));
-    token = strtok(columns, ", ");
-    while (token && def->columnsCount < DefMaxColumns)
-    {
-        strncpy(*(columnsName + def->columnsCount), token, MaxStringSize - 1);
-        *(*(columnsName + def->columnsCount) + MaxStringSize - 1) = '\0';
-        def->columnsCount++;
-        token = strtok(NULL, ", ");
-    }
-    // Выделение памяти для столбцов
-    def->valColumns = (char **)malloc(def->columnsCount * sizeof(char *));
-    for (int i = 0; i < def->columnsCount; i++)
-    {
-        *(def->valColumns + i) = (char *)malloc(MaxStringSize * sizeof(char));
-        strcpy(*(def->valColumns + i), *(columnsName + i));
-    }
-    printf("\033[1;32mУспешно создана таблица \033[1;34m%s\033[0m со столбцами:\n", def->nameTb);
-    for (int i = 0; i < def->columnsCount; i++)
-        printf("%s\n", *(def->valColumns + i));
-    // Освобождаем память
-    for (int i = 0; i < def->columnsCount; i++)
-        free(*(columnsName + i));
-    free(columnsName);
-    return def;
+    FILE *file;
+    file = fopen("structbase.txt", "a");
+    if (file == NULL)
+        printf("Не удалось открыть файл для записи.\n");
+    else
+        fprintf(file, "DATABASE %s\n", db->nameDb);
+    fclose(file);
 }
-//Проверки на неверный ввод команды...
-table *memRows(table *tbEdit, char *columns, char *rowName)
+
+void saveTableInFile(table *def, char *columns)
+{
+    FILE *file;
+    file = fopen("structbase.txt", "a");
+    if (file == NULL)
+        printf("Не удалось открыть файл для записи.\n");
+    else
+        fprintf(file, "\nTABLE %s (%s)", def->nameTb, columns);
+    fclose(file);
+}
+
+void saveRowInFile(table *tbEdit, char *columns, char *rowName)
+{
+    FILE *file;
+    file = fopen("structbase.txt", "a");
+    if (file == NULL)
+        printf("Не удалось открыть файл для записи.\n");
+    else
+        fprintf(file, "\nINSERT %s (%s) VALUES (%s)", tbEdit->nameTb, columns, rowName);
+    fclose(file);
+}
+
+// Проверки на неверный ввод команды...
+table *memRows(table *tbEdit, char *columns, char *rowName, int isLoad)
 {
     char **columnsEnter, *token;
     int rowIndex = tbEdit->rowCount, colIndex = 0;
@@ -105,6 +100,8 @@ table *memRows(table *tbEdit, char *columns, char *rowName)
             return NULL;
         }
     }
+    if (isLoad == 0)
+        saveRowInFile(tbEdit, columns, rowName);
     // Разделяем названия столбцов
     columnsEnter = (char **)malloc(DefMaxColumns * sizeof(char *));
     for (int i = 0; i < DefMaxColumns; i++)
@@ -129,7 +126,8 @@ table *memRows(table *tbEdit, char *columns, char *rowName)
     }
     // Увеличиваем количество строк в таблице
     tbEdit->rowCount++;
-    printf("\033[1;32m:) Данные успешно занесены.\033[0m\n");
+    if (isLoad == 0)
+        printf("\033[1;32m:) Данные успешно занесены.\033[0m\n");
     // Освобождаем память для columnsEnter
     for (int i = 0; i < DefMaxColumns; i++)
         free(*(columnsEnter + i));
@@ -137,27 +135,141 @@ table *memRows(table *tbEdit, char *columns, char *rowName)
     return tbEdit;
 }
 
-database *createDB(char *databaseName)
+table *mem(char *tableName, char *columns, int isLoad)
+{
+    char *token, **columnsName, *columnsDef;
+    table *def;
+    def = (table *)malloc(sizeof(table));
+    def->nameTb = (char *)malloc((strlen(tableName) + 1) * sizeof(char));
+    columnsDef = (char *)malloc(MaxStringSize * 5 * sizeof(char));
+    strcpy(columnsDef, columns);
+    strcpy(def->nameTb, tableName);
+    def->columnsCount = 0;
+    def->maxRow = DefMaxRow;
+    def->rowCount = 0;
+    // Разделение названий колонн из команды
+    columnsName = (char **)malloc(DefMaxColumns * sizeof(char *));
+    for (int i = 0; i < DefMaxColumns; i++)
+        *(columnsName + i) = (char *)malloc(MaxStringSize * sizeof(char));
+    token = strtok(columns, ", ");
+    while (token && def->columnsCount < DefMaxColumns)
+    {
+        strncpy(*(columnsName + def->columnsCount), token, MaxStringSize - 1);
+        *(*(columnsName + def->columnsCount) + MaxStringSize - 1) = '\0';
+        def->columnsCount++;
+        token = strtok(NULL, ", ");
+    }
+    // Выделение памяти для столбцов
+    def->valColumns = (char **)malloc(def->columnsCount * sizeof(char *));
+    for (int i = 0; i < def->columnsCount; i++)
+    {
+        *(def->valColumns + i) = (char *)malloc(MaxStringSize * sizeof(char));
+        strcpy(*(def->valColumns + i), *(columnsName + i));
+    }
+    if (isLoad == 0)
+    {
+        saveTableInFile(def, columnsDef);
+        printf("\033[1;32mУспешно создана таблица \033[1;34m%s\033[0m со столбцами:\n", def->nameTb);
+        for (int i = 0; i < def->columnsCount; i++)
+            printf("%s\n", *(def->valColumns + i));
+    }
+    // Освобождаем память
+    for (int i = 0; i < def->columnsCount; i++)
+        free(*(columnsName + i));
+    free(columnsDef);
+    free(columnsName);
+    return def;
+}
+
+database *createDB(char *databaseName, int isLoaded)
 {
     database *initDb = (database *)malloc(sizeof(database));
     if (!initDb)
         return NULL;
     initDb->tableCount = 0;
     initDb->nameDb = (char *)malloc(MaxStringSize * sizeof(char));
-    initDb->nameDb = databaseName;
-    printf("\033[1;32mУспешно создана база данных \033[1;34m%s\033[0m\n", initDb->nameDb);
-    
+    strcpy(initDb->nameDb, databaseName);
+    if (isLoaded == 0)
+    {
+        saveDbInFile(initDb);
+        printf("\033[1;32mУспешно создана база данных \033[1;34m%s\033[0m\n", initDb->nameDb);
+    }
     return initDb;
 }
 
-void ls(database *db, int dbCheck)
+database *loadDbInFile(database *db)
 {
-    printf("\033[1;36m============================================================\033[0m\n");
-    printf("\033[1;32mСписок созданных структур данных:\033[0m\n");
-    printf("\033[1;36m============================================================\033[0m\n");
-
-    if (dbCheck == 1)
+    int isLoad = 1;
+    FILE *file;
+    file = fopen("structbase.txt", "r");
+    if (file != NULL)
     {
+        char *line;
+        line = (char *)malloc(MaxStringSize * sizeof(char));
+        while (fgets(line, MaxStringSize, file))
+        {
+            if (strncmp(line, "DATABASE", 8) == 0 && db == NULL)
+            {
+                char *databaseName;
+                databaseName = (char *)malloc(MaxStringSize * sizeof(char));
+                sscanf(line, "DATABASE %s", databaseName);
+                databaseName[strcspn(databaseName, "\n")] = '\0';
+                db = createDB(databaseName, isLoad);
+                free(databaseName);
+            }
+            else if (strncmp(line, "TABLE", 5) == 0)
+            {
+                char *tableName, *columns;
+                tableName = (char *)malloc(MaxStringSize * sizeof(char));
+                columns = (char *)malloc(MaxStringSize * DefMaxColumns * sizeof(char));
+                int y = sscanf(line, "TABLE %s (%[^)])", tableName, columns);
+                if (y == 2)
+                {
+                    *(db->tables + db->tableCount) = mem(tableName, columns, isLoad);
+                    db->tableCount++;
+                }
+                free(tableName);
+                free(columns);
+            }
+            else if (strncmp(line, "INSERT", 6) == 0)
+            {
+                int tablesFound = 0;
+                char *tableName, *columns, *rowValue;
+                tableName = (char *)malloc(MaxStringSize * sizeof(char));
+                columns = (char *)malloc(MaxStringSize * DefMaxColumns * sizeof(char));
+                rowValue = (char *)malloc(MaxStringSize * DefMaxColumns * sizeof(char));
+                sscanf(line, "INSERT %s (%[^)]) VALUES (%[^)])", tableName, columns, rowValue);
+                for (int i = 0; i < db->tableCount; i++)
+                {
+                    if (strcmp(db->tables[i]->nameTb, tableName) == 0)
+                    {
+                        db->tables[i] = memRows(db->tables[i], columns, rowValue, isLoad);
+                        tablesFound = 1;
+                        break;
+                    }
+                }
+                    if (!tablesFound)
+                        printf("\033[1;31m:( Данной таблицы не существует.\033[0m\n");
+                    free(tableName);
+                    free(columns);
+                    free(rowValue);
+            }
+        }
+        fclose(file);
+        free(line);
+        printf(":) Данные загружены\n");
+    }
+    return db;
+}
+
+void ls(database *db)
+{
+    if (db != NULL)
+    {
+        printf("\033[1;36m============================================================\033[0m\n");
+        printf("\033[1;32mСписок созданных структур данных: \033[1;34m%s\033[0m\n", db->nameDb);
+        printf("\033[1;36m============================================================\033[0m\n");
+
         for (int i = 0; i < db->tableCount; i++)
         {
             printf("  - \033[1;32m%s\033[0m (", db->tables[i]->nameTb);
@@ -176,7 +288,7 @@ void ls(database *db, int dbCheck)
 
     printf("\033[1;36m============================================================\033[0m\n");
 }
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Сделать обращение на выбранную таблицу а не на все db
+
 void enterStruct(database *db)
 {
     /*while (1)
@@ -291,41 +403,40 @@ void databaseControl(database *db)
             free(tableName1);
         }
         else if (strncmp(command, "ls", 2) == 0)
-            ls(db, 1);
+            ls(db);
         else if (strncmp(command, "INSERT INTO", 11) == 0)
         {
-            int tablesFound = 0;
+            int tablesFound = 0, isLoad = 0;
             char *tableName, *columns, *rowValue;
             tableName = (char *)malloc(MaxStringSize * sizeof(char));
             columns = (char *)malloc(MaxStringSize * DefMaxColumns * sizeof(char));
             rowValue = (char *)malloc(MaxStringSize * DefMaxColumns * sizeof(char));
-            sscanf(command, "INSERT INTO %s (%[^)]) VALUES (%[^)])", tableName, columns, rowValue);
+            sscanf_s(command, "INSERT INTO %s (%[^)]) VALUES (%[^)])", tableName, MaxStringSize, columns, MaxStringSize * DefMaxColumns, rowValue, MaxStringSize * DefMaxColumns);
             for (int i = 0; i < db->tableCount; i++)
             {
                 if (strcmp(db->tables[i]->nameTb, tableName) == 0)
                 {
-                    db->tables[i] = memRows(db->tables[i], columns, rowValue);
+                    db->tables[i] = memRows(db->tables[i], columns, rowValue, isLoad);
                     tablesFound = 1;
                     break;
                 }
-                if (!tablesFound)
-                    printf("\033[1;31m:( Данной таблицы не существует.\033[0m\n");
-                else
-                    printf("\033[1;31mКоманда введена неверно, попробуйте \033[1;32m/help\033[0m\n");
-                free(tableName);
-                free(columns);
-                free(rowValue);
             }
+            if (!tablesFound)
+                printf("\033[1;31m:( Данной таблицы не существует.\033[0m\n");
+            free(tableName);
+            free(columns);
+            free(rowValue);
         }
         else if (strncmp(command, "CREATE TABLE", 12) == 0)
         {
+            int isLoad = 0;
             char *tableName, *columns;
             tableName = (char *)malloc(MaxStringSize * sizeof(char));
             columns = (char *)malloc(MaxStringSize * DefMaxColumns * sizeof(char));
             y = sscanf(command, "CREATE TABLE %s (%[^)])", tableName, columns);
             if (y == 2)
             {
-                *(db->tables + db->tableCount) = mem(tableName, columns);
+                *(db->tables + db->tableCount) = mem(tableName, columns, isLoad);
                 db->tableCount++;
             }
             //        else
@@ -340,9 +451,9 @@ void databaseControl(database *db)
     }
 }
 
+
 void start(database *db)
 {
-    int dbCheck = 0;
     while (1)
     {
         char command[MaxStringSize];
@@ -351,12 +462,12 @@ void start(database *db)
         command[strcspn(command, "\n")] = '\0';
         if (strncmp(command, "CREATE DATABASE", 15) == 0)
         {
+            int isLoad = 0;
             char *databaseName;
             databaseName = (char *)malloc(MaxStringSize * sizeof(char));
             sscanf(command, "CREATE DATABASE %s", databaseName);
             databaseName[strcspn(databaseName, "\n")] = '\0';
-            db = createDB(databaseName);
-            dbCheck = 1;
+            db = createDB(databaseName, isLoad);
             free(databaseName);
         }
         else if (strncmp(command, "cd", 2) == 0)
@@ -367,18 +478,23 @@ void start(database *db)
             if (y == 1)
             {
                 databaseName1[strcspn(databaseName1, "\n")] = '\0';
-                if (strcmp(db->nameDb, databaseName1) == 0)
-                    databaseControl(db);
+                if (db != NULL)
+                {
+                    if (strcmp(db->nameDb, databaseName1) == 0)
+                        databaseControl(db);
+                    else
+                        printf("\033[1;31m:( Данной базы данных не существует.\033[0m\n");
+                }
                 else
                     printf("\033[1;31m:( Данной базы данных не существует.\033[0m\n");
             }
             else
-                printf("\033[1;31m:( Данной базы данных не существует.\033[0m\n");
+                printf("\033[1;31m:( Нет созданных баз данных.\033[0m\n");
             free(databaseName1);
         }
         // Разработать менеджер для структур данных
         else if (strncmp(command, "ls", 2) == 0)
-            ls(db, dbCheck);
+            ls(db);
         else if (strcmp(command, "/help") == 0)
         {
             printf("\033[1;34mСписок возможных команд:\033[0m\n");
@@ -395,7 +511,6 @@ void start(database *db)
             printf("\033[1;31mКоманда введена неверно, попробуйте \033[1;32m/help\033[0m\n");
     }
 }
-// trie
 int againProg()
 {
     int y, again;

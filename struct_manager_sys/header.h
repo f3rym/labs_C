@@ -5,9 +5,9 @@
 #include <string.h>
 #include <locale.h>
 
-#define MaxStringSize 50 // Максимальная длинна строки
-#define DefMaxRow 5      // Максимальное количество строк по умолчанию
-#define DefMaxColumns 4  // Максимальное количество полей по умолчанию
+#define MaxStringSize 200 // Максимальная длинна строки
+#define DefMaxRow 10      // Максимальное количество строк по умолчанию
+#define DefMaxColumns 5  // Максимальное количество полей по умолчанию
 #define MaxTables 10      // Максимальное количество таблиц
 struct table
 {
@@ -31,9 +31,9 @@ void start(database *db);
 
 int enterEl();
 
-// database *createDB();
+database *loadDbInFile(database *db);
 
-table *mem(char *tableName, char *columns);
+table *mem(char *tableName, char *columns, int isLoad);
 
 void enterStruct(database *db);
 
